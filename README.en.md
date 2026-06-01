@@ -19,6 +19,8 @@
 
 > Turn a job description into a project, a project into a resume, and a resume into interviews.
 
+> **Recommended setup: use Codex first, and enable Plan mode for the complete yes/no gate, preference-choice popup, and custom-input experience.** If another coding agent supports an interactive Plan / Planning / Ask mode, enable it first; otherwise the project preference flow may degrade to ordinary text input.
+
 Welcome to the Shushu Internship & Employment QQ group: **976187338**.
 
 SIT, short for **shushu internship tool**, is an AI-assisted internship project preparation toolkit. It turns a target JD, meaning **Job Description** or job posting, into a practical project package that you can use for applications, interviews, code walkthroughs, and presentation materials.
@@ -27,7 +29,7 @@ A JD usually contains role responsibilities, required skills, tech stacks, busin
 
 The toolkit is designed for computer-industry internship candidates across backend, frontend, full-stack, mobile, test development, data engineering, cloud/DevOps, security, systems, AI, and algorithm roles. It is especially useful for beginners or low-experience candidates who need a fast path from role targeting to project selection, code understanding, project modification, resume writing, and interview drilling.
 
-If you only provide a JD, the workflow first does a quick JD read and then triggers a one-time project preference / taste yes-no gate. You can choose “no preference, recommend by JD and the safe default strategy,” or choose “yes” and then select or customize one of A/B/C/D. After that, the workflow asks a short intake: your current level, current tech stack, time budget, available resources, and desired run depth.
+If you only provide a JD, the workflow first does a quick JD read and then asks a short intake: your current level, current tech stack, time budget, available resources, and desired run depth. The recently added project preference flow can be used as a small signal for open-source repository filtering and ranking.
 
 ## Featured Companion Project: VibeResume
 
@@ -49,9 +51,17 @@ It works as the last-mile companion to SIT: SIT helps turn a JD into project and
 - Suggests interview-ready modifications, such as adding APIs, pages, databases, cache, tests, monitoring, CI/CD, data flows, performance optimization, demos, or AI/algorithm experiments.
 - Generates an interview pack: STAR resume bullets, core code walkthrough notes, interviewer-style Q&A, PPT prompts, and an application checklist.
 
+## Project Preference
+
+Project preference is a recent addition. It confirms whether you have repository-filtering preferences before project discovery. For coding agents that support interactive planning, enable Plan / Planning / Ask mode. In Codex, this is Plan mode and uses `request_user_input` for the most complete popup experience. Without such a mode, preference confirmation may degrade to ordinary text input.
+
+The flow is: first choose whether you have a preference; choosing “no” keeps the original workflow, while choosing “yes” opens 3 open-source repository filtering suggestions plus the client’s built-in custom input as option D. Codex is recommended for the most stable and complete structured-choice experience.
+
+Preference only adds a small signal to GitHub repository filtering and ranking. The main workflow still finds 2-3 open-source repositories and then plans interview-ready modifications. Expressions such as “do not want,” “avoid,” or “do not depend on” are treated as avoid-tags, not positive preferences.
+
 ## Recommended Usage
 
-Send your target JD and personal background to an AI assistant, then choose a run depth. If you already have a clear project preference / taste, you can include it in the first message, but the workflow still asks for one yes/no confirmation before using it as the D custom preference:
+Send your target JD and personal background to an AI assistant, then choose a run depth. If you already have a clear project preference, you can include it in the first message; the workflow still confirms it before use:
 
 ```text
 Use shushu internship tool to help me turn the following JD into a computer-industry internship project that I can apply with, explain in interviews, and present clearly.
@@ -68,14 +78,7 @@ JD (Job Description / job posting):
 ...
 ```
 
-If you do not have a preference yet, write “Project preference / taste: none, recommend by JD,” or just provide the JD. After the initial JD read, the workflow always asks one yes/no question: do you have your own project preference / taste? If your first message already contains a preference, the workflow first asks whether to use that text as the D custom preference.
-
-- Choose “no”: continue the original workflow and rank by JD fit, skill fit, run feasibility, resource cost, project risk, and interview value. No taste weight is added; any preference text in the initial message is ignored.
-- Choose “yes”: the workflow shows A/B/C/D options.
-  - A/B/C are generated dynamically from the broad project categories implied by the JD. If you provided background, tech stack, time budget, or resources, those are considered too; otherwise they are generated from the JD and conservative defaults only.
-  - D is a directly fillable custom input box / blank field, such as `D. ________`. You can write: “I prefer backend + AI apps, do not want pure frontend, want Docker local run, and want the project to be interview-friendly.” If your initial message already had a preference and you confirm it, D reuses that text.
-
-Expressions such as “do not want,” “avoid,” and “do not depend on” are treated as avoid-tags, not positive preferences.
+If you do not have a preference yet, write “Project preference / taste: none, recommend by JD,” or just provide the JD. After the initial JD read, the workflow always asks one yes/no question: do you have your own project preference / taste? If your first message already contains a preference, the workflow first asks whether to use that text as a custom preference.
 
 ## Star History
 
@@ -107,10 +110,22 @@ python -m shushu_internship_tool.candidate_score --jd jd.txt --candidates candid
 Rank candidate projects with an optional project preference / taste file:
 
 ```bash
-python -m shushu_internship_tool.candidate_score --jd jd.txt --candidates candidates.json --taste taste.txt --out reports/ranking
+python -m shushu_internship_tool.candidate_score --jd jd.txt --candidates candidates.json --taste taste.json --out reports/ranking
 ```
 
-`candidate_score` computes `raw_score` first and then normalizes it to 0-100 using `max_raw_score`: 104 when there is no effective taste, and 114 when an effective taste adds the small `user_preference` dimension. Missing `--taste`, an empty file, whitespace-only text, or no-op text such as “none / no preference / skip” is treated as no effective taste.
+`candidate_score` computes `raw_score` first and then normalizes it to 0-100 using `max_raw_score`: 104 when there is no effective taste, and 114 when an effective taste has positive `prefer_tags` and adds the small `user_preference` dimension. Missing `--taste`, an empty file, whitespace-only text, or a file without structured `prefer_tags` / `avoid_tags` is treated as no effective taste; the script does not parse natural-language preferences.
+
+Candidate ranking also does not infer JD fit, license quality, runnability, or resource fit from free text. The AI assistant should write explicit `matched_jd_terms`, `license_score`, `runnable_score`, and `resource_fit_score` fields in the candidate JSON.
+
+Example `taste.json`:
+
+```json
+{
+  "taste_text": "I prefer backend + AI apps, do not want pure frontend, want Docker local run, and want the project to be interview-friendly.",
+  "prefer_tags": ["backend", "ai-app", "local-docker", "interview-friendly"],
+  "avoid_tags": ["pure-frontend", "multi-gpu", "cloud-heavy"]
+}
+```
 
 Create an interview-pack skeleton:
 
@@ -123,7 +138,7 @@ After installation, you can also use the command-line entry points:
 ```bash
 shushu-repo-audit --repo /path/to/repo --out reports/audit --name my-project
 shushu-candidate-score --jd jd.txt --candidates candidates.json --out reports/ranking
-shushu-candidate-score --jd jd.txt --candidates candidates.json --taste taste.txt --out reports/ranking
+shushu-candidate-score --jd jd.txt --candidates candidates.json --taste taste.json --out reports/ranking
 shushu-interview-pack --project-notes reports/audit --out reports/interview-pack
 ```
 
@@ -135,13 +150,16 @@ shushu-interview-pack --project-notes reports/audit --out reports/interview-pack
     "name": "tiny-ticket-system",
     "repo_url": "https://github.com/example/tiny-ticket-system",
     "license": "MIT",
+    "license_score": 4,
     "stars": 320,
     "last_commit": "2026-04-20",
     "tags": ["fastapi", "postgresql", "docker", "rest-api"],
-    "jd_keywords": ["backend", "api design", "database", "docker"],
     "matched_jd_terms": ["backend development", "API design", "database", "containerized deployment"],
+    "jd_match_score": 20,
     "runnable": true,
-    "compute": "local_docker",
+    "runnable_score": 20,
+    "resources": "local Docker smoke-test",
+    "resource_fit_score": 10,
     "mod_ideas": ["add JWT auth", "add Redis cache", "add integration tests"],
     "risk_notes": ["database migration needs setup"],
     "taste_tags": ["backend", "local-docker", "interview-friendly", "api", "database"],

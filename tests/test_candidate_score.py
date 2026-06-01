@@ -1,3 +1,4 @@
+import json
 from datetime import date
 
 from shushu_internship_tool.candidate_score import (
@@ -20,9 +21,11 @@ def test_candidate_score_ranks_matchable_runnable_project_first() -> None:
             "stars": 3,
             "last_commit": "2021-01-01",
             "tags": ["research"],
-            "jd_keywords": ["api"],
+            "matched_jd_terms": ["api"],
+            "license_score": 0,
             "runnable": False,
             "compute": "large cluster",
+            "resource_fit_score": 3,
             "mod_ideas": [],
             "risk_notes": ["no license", "requires private dataset"],
         },
@@ -33,9 +36,11 @@ def test_candidate_score_ranks_matchable_runnable_project_first() -> None:
             "stars": 350,
             "last_commit": "2026-05-01",
             "tags": ["fastapi", "postgresql", "docker", "deployment"],
-            "jd_keywords": ["backend", "api design", "testing", "docker"],
+            "matched_jd_terms": ["backend", "api design", "testing", "docker"],
+            "license_score": 4,
             "runnable": True,
-            "compute": "local_docker",
+            "compute": "local Docker smoke-test",
+            "resource_fit_score": 10,
             "mod_ideas": ["add JWT auth", "add Redis cache", "add integration tests"],
             "risk_notes": ["database migration needs setup"],
         },
@@ -46,9 +51,12 @@ def test_candidate_score_ranks_matchable_runnable_project_first() -> None:
             "stars": 80,
             "last_commit": "2025-08-01",
             "tags": ["sqlite"],
-            "jd_keywords": ["database"],
+            "matched_jd_terms": ["database"],
+            "license_score": 4,
             "runnable": "partial",
+            "runnable_score": 10,
             "compute": "cpu",
+            "resource_fit_score": 8,
             "mod_ideas": ["add tests"],
             "risk_notes": [],
         },
@@ -76,10 +84,11 @@ def test_candidate_score_uses_agent_supplied_jd_matches_without_role_aliases() -
             "stars": 4500,
             "last_commit": "2026-04-01",
             "tags": ["recommendation", "pytorch", "ranking"],
-            "jd_keywords": ["recommendation", "ranking", "user behavior", "deep learning"],
             "matched_jd_terms": ["推荐算法", "搜索分发", "大语言模型", "用户行为数据"],
+            "license_score": 4,
             "runnable": True,
-            "compute": "local_or_single_gpu",
+            "compute": "local or single GPU",
+            "resource_fit_score": 8,
             "mod_ideas": ["video proxy dataset", "ranking metrics dashboard"],
             "risk_notes": [],
         },
@@ -90,9 +99,11 @@ def test_candidate_score_uses_agent_supplied_jd_matches_without_role_aliases() -
             "stars": 300,
             "last_commit": "2026-04-01",
             "tags": ["react", "dashboard"],
-            "jd_keywords": ["frontend"],
+            "matched_jd_terms": [],
+            "license_score": 4,
             "runnable": True,
-            "compute": "local_docker",
+            "compute": "local Docker smoke-test",
+            "resource_fit_score": 10,
             "mod_ideas": ["add page"],
             "risk_notes": [],
         },
@@ -109,18 +120,29 @@ def _max_score_candidate(**overrides):
         "name": "max-project",
         "repo_url": "https://github.com/example/max",
         "license": "MIT",
+        "license_score": 4,
         "stars": 1000,
         "last_commit": "2026-05-17",
         "tags": ["fastapi", "postgresql", "docker", "testing", "deployment", "api"],
-        "jd_keywords": ["fastapi", "postgresql", "docker", "testing", "deployment", "api"],
         "matched_jd_terms": ["fastapi", "postgresql", "docker", "testing", "deployment", "api"],
         "runnable": True,
-        "compute": "local_docker",
+        "runnable_score": 20,
+        "compute": "local Docker smoke-test",
+        "resource_fit_score": 10,
         "mod_ideas": ["add auth", "add cache", "add tests", "add deploy"],
         "risk_notes": [],
     }
     candidate.update(overrides)
     return candidate
+
+
+def _taste(prefer_tags=None, avoid_tags=None) -> str:
+    return json.dumps(
+        {
+            "prefer_tags": prefer_tags or [],
+            "avoid_tags": avoid_tags or [],
+        }
+    )
 
 
 def test_no_effective_taste_uses_104_denominator_and_no_taste_column() -> None:
@@ -151,7 +173,7 @@ def test_no_effective_taste_uses_104_denominator_and_no_taste_column() -> None:
     assert "Taste Fit" not in markdown
 
 
-def test_empty_and_noop_taste_texts_are_not_effective() -> None:
+def test_empty_and_unstructured_taste_texts_are_not_effective() -> None:
     assert not has_effective_taste(None)
     assert not has_effective_taste("   \n\t")
     assert not has_effective_taste("无")
@@ -161,12 +183,18 @@ def test_empty_and_noop_taste_texts_are_not_effective() -> None:
     assert not has_effective_taste("no preference")
     assert not has_effective_taste("无 / 都可以")
     assert not has_effective_taste("项目偏好 / taste：无，按 JD 推荐")
-    assert has_effective_taste("无，但其实更偏后端")
+    assert not has_effective_taste("无，但其实更偏后端")
+    assert not has_effective_taste("更想做后端，本地 Docker 跑通，适合面试讲")
+
+    assert has_effective_taste(_taste(prefer_tags=["backend"]))
+    assert has_effective_taste("prefer_tags: backend, local_docker\navoid_tags: pure_frontend")
 
 
 def test_effective_taste_uses_114_denominator_and_can_reach_100() -> None:
     jd = "FastAPI PostgreSQL Docker testing deployment API"
-    taste_text = "更想做后端 AI 应用，本地 Docker 跑通，适合面试讲，有 API 和数据库链路"
+    taste_text = _taste(
+        prefer_tags=["backend", "ai-app", "local-docker", "interview-friendly", "api", "database"]
+    )
     candidate = _max_score_candidate(
         tags=["fastapi", "postgresql", "docker", "rag", "testing", "deployment"],
         taste_tags=["backend", "ai-app", "local-docker", "interview-friendly", "api", "database"],
@@ -196,9 +224,11 @@ def test_negative_raw_score_clamps_to_zero_after_normalization() -> None:
         "stars": 0,
         "last_commit": "2019-01-01",
         "tags": [],
-        "jd_keywords": [],
+        "matched_jd_terms": [],
+        "license_score": 0,
         "runnable": False,
-        "compute": "multi_gpu distributed cluster",
+        "compute": "expensive distributed cluster",
+        "resource_fit_score": 0,
         "mod_ideas": [],
         "risk_notes": ["risk"] * 20,
     }
@@ -211,18 +241,20 @@ def test_negative_raw_score_clamps_to_zero_after_normalization() -> None:
 
 def test_decimal_scores_are_sorted_without_truncating_fractional_part() -> None:
     jd = "Backend API Docker database testing deployment"
-    taste_text = "更想做后端 AI 应用，本地 Docker 跑通，适合面试讲"
+    taste_text = _taste(prefer_tags=["backend", "ai-app", "local-docker", "interview-friendly"])
     high = {
         "name": "z-higher-fractional-score",
         "repo_url": "https://github.com/example/high",
         "license": "MIT",
+        "license_score": 4,
         "stars": 200,
         "last_commit": "2026-05-17",
         "tags": ["fastapi", "docker"],
-        "jd_keywords": ["backend", "api", "docker", "database", "testing", "deployment"],
         "matched_jd_terms": ["backend", "api", "docker", "database", "testing", "deployment"],
         "runnable": True,
-        "compute": "local_docker",
+        "runnable_score": 20,
+        "compute": "local Docker smoke-test",
+        "resource_fit_score": 10,
         "mod_ideas": [],
         "risk_notes": [],
         "taste_tags": ["backend", "ai-app", "local-docker", "interview-friendly"],
@@ -240,14 +272,14 @@ def test_decimal_scores_are_sorted_without_truncating_fractional_part() -> None:
 
     assert ranked[0]["name"] == "z-higher-fractional-score"
     assert ranked[0]["raw_score"] == 90
-    assert ranked[1]["raw_score"] == 89
+    assert ranked[1]["raw_score"] == 87
     assert ranked[0]["score"] == 78.95
-    assert ranked[1]["score"] == 78.07
+    assert ranked[1]["score"] == 76.32
 
 
 def test_taste_matching_can_break_close_ties_but_not_override_major_quality_gap() -> None:
     jd = "Backend API Docker database testing deployment"
-    taste_text = "更想做后端 AI 应用，本地 Docker 跑通，适合面试讲"
+    taste_text = _taste(prefer_tags=["backend", "ai-app", "local-docker", "interview-friendly", "api"])
     taste_match = _max_score_candidate(
         name="taste-match-close-project",
         stars=200,
@@ -264,15 +296,18 @@ def test_taste_matching_can_break_close_ties_but_not_override_major_quality_gap(
     ranked = rank_candidates(jd, [close_default, taste_match], today=date(2026, 5, 17), taste_text=taste_text)
 
     assert ranked[0]["name"] == "taste-match-close-project"
-    assert ranked[0]["score_breakdown"]["user_preference"] == 8
+    assert ranked[0]["score_breakdown"]["user_preference"] == 10
 
     high_quality = _max_score_candidate(name="high-quality-project", taste_tags=[])
     risky_but_tasty = _max_score_candidate(
         name="risky-but-tasty-project",
         license="unknown",
+        license_score=0,
         stars=3,
         runnable=False,
-        compute="multi_gpu distributed cluster",
+        runnable_score=-5,
+        compute="expensive distributed cluster",
+        resource_fit_score=0,
         mod_ideas=[],
         risk_notes=["no license", "private data", "heavy cluster", "old deps", "unclear run", "closed service", "large dataset"],
         taste_tags=["backend", "ai-app", "local-docker", "interview-friendly", "api"],
@@ -286,11 +321,11 @@ def test_taste_matching_can_break_close_ties_but_not_override_major_quality_gap(
     )
 
     assert ranked_quality_gap[0]["name"] == "high-quality-project"
-    assert ranked_quality_gap[1]["score_breakdown"]["user_preference"] == 8
+    assert ranked_quality_gap[1]["score_breakdown"]["user_preference"] == 10
 
 
-def test_chinese_aliases_and_negative_preferences_are_handled() -> None:
-    taste_text = "更想做后端，能本地跑通，适合面试讲；不想做纯前端，不要多机多卡。"
+def test_structured_taste_lines_and_avoid_tags_are_handled() -> None:
+    taste_text = "prefer_tags: backend, local_docker, interview-friendly\navoid_tags: pure_frontend, multi-gpu"
     prefer_tags, avoid_tags = parse_user_taste(taste_text)
 
     assert {"backend", "local-docker", "interview-friendly"} <= prefer_tags
@@ -308,3 +343,4 @@ def test_chinese_aliases_and_negative_preferences_are_handled() -> None:
     assert {"backend", "local-docker", "interview-friendly"} <= set(backend_matches)
     assert "pure-frontend" not in frontend_matches
     assert "pure-frontend" in frontend_mismatches
+    assert frontend_score < 0

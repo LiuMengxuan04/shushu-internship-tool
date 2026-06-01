@@ -21,12 +21,14 @@
 
 - 用户偏好匹配是额外小权重，只用于辅助近分候选排序和解释，不覆盖 JD 匹配、可运行性、资源成本、风险和面试抗压。
 - 如果用户在 JD 后 taste gate 选择“没有 / no”，不要为了 taste 改写候选项目，也不要在后续推荐阶段重复追问。
-- 如果用户选择“有 / yes”并完成 A/B/C/D，候选 JSON 尽量补充：
+- 如果用户选择“有 / yes”并完成结构化偏好选择或自定义输入，候选 JSON 尽量补充：
   - `taste_tags`：项目能匹配的偏好标签，例如 `backend`、`ai-app`、`local-docker`、`interview-friendly`。
   - `project_taste_notes`：候选项目通用 taste 说明，只做人类可读解释，不参与脚本打分。
   - `avoid_tags`：项目自身可能让部分用户避雷的属性，例如 `pure-frontend`、`multi-gpu`、`cloud-only`、`large-dataset`。
+- 有效 taste 必须写入 `taste.json` 并传给 `candidate_score --taste`；最终表格应出现 Taste Fit，JSON 应出现 `score_breakdown.user_preference`。
 - “不要 / 不想 / 避免 / 不希望”这类表达必须作为避雷项处理，不能当成正向偏好。
 - 命中用户 taste 的项目仍需满足硬性条件；明显不可运行、高风险、资源超预算或 JD 牵强的项目不能只靠 taste 成为主项目。
+- `candidate_score` 不从自由文本里猜分；候选 JSON 需要由 agent 显式写入 `matched_jd_terms` / `jd_match_score`、`license_score`、`runnable_score`、`resource_fit_score`。
 
 ## 淘汰条件
 
