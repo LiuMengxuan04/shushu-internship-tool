@@ -224,6 +224,8 @@ pytest
   </tr>
 </table>
 
+## ⚠️ Notice
+shushu-internship-tool / 鼠鼠实习妙妙工具 is not affiliated with, authorized by, or listed by the maintainer on Orynth. The maintainer has not created an Orynth account and has not authorized any token, market, coin, wallet, trading page, or Web3 launch related to this project. Any such listing should be treated as unauthorized.
 
 ## License
 
