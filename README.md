@@ -224,6 +224,9 @@ pytest
   </tr>
 </table>
 
+## ⚠️ 声明
+shushu-internship-tool / 鼠鼠实习妙妙工具 与 Orynth 没有任何合作、授权、入驻或关联。项目维护者未注册 Orynth 账号，未授权任何 token、market、coin、wallet、交易页或 Web3 launch。任何相关页面均非官方授权。
+
 ## License
 
 Apache-2.0
